@@ -1,0 +1,6 @@
+// Missing semicolon on line 2
+a = 10
+if (a >= 5) {
+    b = 1;
+}
+

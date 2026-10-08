@@ -1,0 +1,15 @@
+// Nested if/else and optional else
+score = 80;
+if (score >= 50) {
+    if (score == 80) {
+        result = 1;
+    } else {
+        result = 2;
+    }
+} else {
+    result = 0;
+}
+if (result != 0) {
+    passed = 1;
+}
+
