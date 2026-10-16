@@ -7,7 +7,7 @@ all: compiler
 lex.yy.c: lexer.l tokens.h
 	$(LEX) lexer.l
 
-compiler: lex.yy.c syntax_checker.c tokens.h
+compiler: lex.yy.c syntax_checker.c tokens.h translation.h
 	$(CC) $(CFLAGS) syntax_checker.c lex.yy.c -o compiler
 
 demo: compiler

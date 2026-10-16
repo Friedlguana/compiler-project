@@ -1,4 +1,4 @@
-/* Phase 1: Lex-generated tokenizer + recursive-descent syntax checker. */
+/* Lex scanner, recursive-descent translation, backpatching, and TAC. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -22,6 +22,8 @@ static void out_of_memory(void) {
     fprintf(stderr, "ERROR: out of memory.\n");
     exit(2);
 }
+
+#include "translation.h"
 
 static void append_token(int kind, const char *text, size_t length,
                          int line, int column) {
@@ -93,62 +95,120 @@ static void expect(int kind, const char *description) {
     if (!accept(kind)) expected(description);
 }
 
-static void expression(void);
-static void statement(void);
+static const char *expression(void);
+static PatchList statement(void);
 
-static void factor(void) {
-    if (current() == TOK_ID || current() == TOK_NUMBER) position++;
-    else if (accept('(')) {
-        expression();
+static const char *factor(void) {
+    const char *place;
+    if (current() == TOK_ID || current() == TOK_NUMBER) {
+        place = tokens[position++].text;
+        trace("factor -> ID | NUMBER", format("factor.place = %s", place));
+        return place;
+    }
+    if (accept('(')) {
+        place = expression();
         expect(')', "')'");
-    } else expected("an identifier, integer, or '('");
+        trace("factor -> ( expression )", format("factor.place = %s", place));
+        return place;
+    }
+    expected("an identifier, integer, or '('");
+    return ""; /* expected() transfers control to the failure handler. */
 }
 
-static void term(void) {
-    factor();
+static const char *term(void) {
+    const char *place = factor();
     while (current() == '*' || current() == '/') {
-        position++;
-        factor();
+        const char *op = tokens[position++].text;
+        const char *right = factor();
+        place = binary("term -> term op factor", place, op, right);
     }
+    return place;
 }
 
-static void expression(void) {
-    term();
+static const char *expression(void) {
+    const char *place = term();
     while (current() == '+' || current() == '-') {
-        position++;
-        term();
+        const char *op = tokens[position++].text;
+        const char *right = term();
+        place = binary("expression -> expression op term", place, op, right);
     }
+    return place;
 }
 
-static void condition(void) {
-    int kind;
-    expression();
-    kind = current();
+static Boolean condition(void) {
+    const char *left = expression(), *op, *right;
+    size_t yes, no;
+    int kind = current();
+    Boolean attributes;
     if (kind != '<' && kind != '>' && kind != TOK_LE &&
         kind != TOK_GE && kind != TOK_EQ && kind != TOK_NE)
         expected("a comparison operator (<, >, <=, >=, ==, !=)");
-    position++;
-    expression();
+    op = tokens[position++].text;
+    right = expression();
+    yes = emit("if", op, left, right, "");
+    no = emit("goto", "", "", "", "");
+    attributes.truelist = makelist(yes);
+    attributes.falselist = makelist(no);
+    trace("condition -> expression relop expression",
+          format("truelist = {%zu}; falselist = {%zu}; emit conditional and false jumps.", yes, no));
+    return attributes;
 }
 
-static void block(void) {
+/* S1 ; M S2: patch S1.nextlist to M.instr before translating S2. */
+static PatchList statement_list(void) {
+    PatchList pending = emptylist();
+    while (current() != '}' && current() != 0) {
+        backpatch(pending, nextinstr());
+        pending = statement();
+    }
+    return pending;
+}
+
+static PatchList block(void) {
+    PatchList pending;
     expect('{', "'{'");
-    while (current() != '}' && current() != 0) statement();
+    pending = statement_list();
     expect('}', "'}'");
+    return pending;
 }
 
-static void statement(void) {
-    if (accept(TOK_ID)) {
+static PatchList statement(void) {
+    if (current() == TOK_ID) {
+        const char *name = tokens[position++].text, *value;
+        size_t label;
         expect('=', "'='");
-        expression();
+        value = expression();
         expect(';', "';'");
-    } else if (accept(TOK_IF)) {
+        label = emit("assign", "", value, "", name);
+        trace("assignment -> ID = expression ;",
+              format("emit %zu: %s = %s; nextlist = empty.", label, name, value));
+        return emptylist();
+    }
+    if (accept(TOK_IF)) {
+        Boolean test;
+        PatchList then_next, else_next, skip;
         expect('(', "'('");
-        condition();
+        test = condition();
         expect(')', "')'");
-        block();
-        if (accept(TOK_ELSE)) block();
-    } else expected("an assignment or 'if' statement");
+        trace("marker M_then", format("M_then.instr = %zu", nextinstr()));
+        backpatch(test.truelist, nextinstr());
+        then_next = block();
+        if (accept(TOK_ELSE)) {
+            skip = makelist(emit("goto", "", "", "", ""));
+            trace("marker N", format("Emit jump %zu to skip the else branch.", skip.head));
+            trace("marker M_else", format("M_else.instr = %zu", nextinstr()));
+            backpatch(test.falselist, nextinstr());
+            else_next = block();
+            trace("if -> if ( B ) M S N else M S",
+                  format("nextlist = merge(then.nextlist, N.nextlist, else.nextlist)."));
+            return merge(merge(then_next, skip), else_next);
+        }
+        trace("if -> if ( B ) M S",
+              format("nextlist = merge(B.falselist, then.nextlist)."));
+        return merge(test.falselist, then_next);
+    }
+    expected("an assignment or 'if' statement");
+    return emptylist();
 }
 
 static void release_tokens(void) {
@@ -159,17 +219,20 @@ static void release_tokens(void) {
 
 int main(int argc, char **argv) {
     int kind, lexical_failure = 0;
-    if (argc != 2) {
-        fprintf(stderr, "Usage: %s <source-file>\n", argv[0]);
+    int web = argc == 3 && !strcmp(argv[1], "--web");
+    const char *path = web ? argv[2] : argc == 2 ? argv[1] : NULL;
+    PatchList pending;
+    if (!path) {
+        fprintf(stderr, "Usage: %s [--web] <source-file>\n", argv[0]);
         return 2;
     }
-    yyin = fopen(argv[1], "r");
+    yyin = fopen(path, "r");
     if (!yyin) {
-        perror(argv[1]);
+        perror(path);
         return 2;
     }
-    printf("=== PHASE 1: LEX TOKENIZER + C SYNTAX CHECKER ===\n");
-    printf("Input: %s\n\nTOKENS\n", argv[1]);
+    printf("=== COMPILER: LEX + SDT + BACKPATCHING + TAC ===\n");
+    printf("Input: %s\n\nTOKENS\n", path);
     printf("%-5s %-14s %-18s %s\n", "No.", "Type", "Lexeme", "Line:Column");
     while ((kind = yylex()) != 0) {
         append_token(kind, yytext, (size_t)yyleng, token_line, token_column);
@@ -198,11 +261,20 @@ int main(int argc, char **argv) {
     printf("%-5zu %-14s %-18s %d:%d\n", count, "EOF", "",
            source_line, source_column);
     if (setjmp(syntax_failure) != 0) {
+        puts("Translation discarded: no TAC generated for invalid syntax.");
+        release_translation();
         release_tokens();
         return 1;
     }
-    while (current() != 0) statement();
+    pending = statement_list();
+    if (current() != 0) expected("end of file");
+    backpatch(pending, nextinstr());
+    emit("halt", "", "", "", "");
+    trace("program -> statement_list",
+          format("Patch program.nextlist to halt; all jump targets are resolved."));
     printf("\nSYNTAX SUCCESS: the entire input follows the grammar.\n");
+    print_translation(web);
+    release_translation();
     release_tokens();
     return 0;
 }

@@ -1,0 +1,10 @@
+a = 4;
+b = 2;
+if (a > b) {
+    if (a == 4) {
+        result = a * b + 1;
+    }
+} else {
+    result = a - b;
+}
+finished = 1;

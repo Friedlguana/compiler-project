@@ -3,23 +3,25 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Compiler Lab</title><link rel="stylesheet" href="/static/style.css"><script defer src="/static/app.js"></script></head>
 <body>
-<header><a href="/" class="brand"><span class="logo">{ }</span> Compiler Lab</a><span class="badge">PHASE 01 · C + LEX</span></header>
+<header><a href="/" class="brand"><span class="logo">{ }</span> Compiler Lab</a><span class="badge">MULTI LANGUAGE · C/LEX BACKEND</span></header>
 <main>
-<div class="intro"><p class="eyebrow">FROM SOURCE TO STRUCTURE</p><h1>See your code take shape.</h1><p>Write a small program. Explore its tokens. Check its syntax.</p></div>
+<div class="intro"><p class="eyebrow">FROM SOURCE TO INTERMEDIATE CODE</p><h1>See your code take shape.</h1><p>Explore tokens, follow translation rules, and watch pending jumps become three-address code.</p></div>
 <div class="workspace">
 <section class="panel editor-panel">
 <div class="panel-heading"><h2><span>01</span> Source code</h2><label for="examples" class="sr-only">Load an example</label><select id="examples"><option value="">Load an example…</option></select></div>
 <label for="source" class="sr-only">Program source</label>
+<div class="language-bar"><label for="language">Source language</label><select id="language"><option value="auto">Auto-detect</option value="python">Python</option><option value="java">Java</option><option value="c">C</option><option value="cpp">C++</option><option value="javascript">JavaScript</option><option value="shared">Original C-style snippets</option></select></div>
 <textarea id="source" spellcheck="false" maxlength="20000" aria-describedby="language-note"></textarea>
 <div class="editor-footer"><span id="length">0 characters</span><button id="analyze" class="primary">Analyze code <span aria-hidden="true">→</span></button></div>
-<p id="language-note" class="hint">Assignments, integer arithmetic, and if / else. Use braces around branches.</p>
+<p id="language-note" class="hint">Python, Java, C, C++ and JavaScript. Analyze auto-detects the language. TAC supports numeric assignments, arithmetic and if / else; other valid constructs get syntax results only.</p>
+<p id="detected-language" class="hint" role="status" aria-live="polite">Language will be detected when you analyze.</p>
 <div id="notice" role="status" aria-live="polite"></div>
 </section>
 <section class="panel result-panel">
 <div class="panel-heading"><h2><span>02</span> Syntax check</h2><span id="status-pill" class="pill">READY</span></div>
 <div id="result" aria-live="polite"><div class="empty-icon">✓</div><h3>Ready when you are.</h3><p>Run an analysis to check your program against the grammar.</p></div>
 <div class="pipeline"><div><small>LEXICAL ANALYSIS</small><strong id="lex-status">Waiting</strong></div><span>→</span><div><small>SYNTAX CHECK</small><strong id="syntax-status">Waiting</strong></div></div>
-<details><summary>Language grammar</summary><pre>program    → statement*
+<details><summary>TAC backend grammar (after language normalization)</summary><pre>program    → statement*
 statement  → assignment | if_statement
 assignment → ID = expression ;
 if_stmt    → if ( condition ) { statement* }
@@ -38,6 +40,23 @@ relop      → &lt; | &gt; | &lt;= | &gt;= | == | !=</pre></details>
 <div class="table-scroll"><table><thead><tr><th>#</th><th>Token type</th><th>Lexeme</th><th>Line</th><th>Column</th></tr></thead><tbody id="tokens"><tr><td colspan="5" class="empty-table">Your tokens will appear here.</td></tr></tbody></table></div>
 <details id="raw-output" hidden><summary>Compiler terminal output</summary><pre id="terminal"></pre></details>
 </section>
-<footer>Lex tokenization → C syntax checking <span>Phase 1 · No program execution</span></footer>
+<section class="panel tokens-panel">
+<div class="panel-heading"><h2><span>04</span> Syntax-directed translation</h2><span id="translation-status" class="pill">WAITING</span></div>
+<p class="hint">Arithmetic rules synthesize place attributes; conditions build truelist / falselist, and statements pass nextlist.</p>
+<ol id="translation-steps" class="translation-list"><li>Analyze a valid program to see the semantic actions.</li></ol>
+<details id="normalized-panel" hidden><summary>Normalized C/Lex input</summary><p class="hint">The language frontend lowers supported syntax into this common grammar. Your original source tokens are shown above.</p><pre id="normalized-code"></pre></details>
+</section>
+<section class="panel tokens-panel">
+<div class="panel-heading"><h2><span>05</span> Backpatching</h2><div class="controls"><button id="patch-reset" disabled>Reset</button><button id="patch-next" disabled>Apply next patch →</button></div></div>
+<p id="patch-info" class="hint" aria-live="polite">Pending jump targets start as _. Apply patches to resolve each destination.</p>
+<div class="table-scroll"><table><thead><tr><th>Instruction</th><th>Code during backpatching</th></tr></thead><tbody id="patch-code"><tr><td colspan="2">Waiting for valid input.</td></tr></tbody></table></div>
+<details><summary>Patch operations</summary><ol id="patch-operations" class="translation-list"></ol></details>
+</section>
+<section class="panel tokens-panel">
+<div class="panel-heading"><h2><span>06</span> Three-address code <small id="tac-count">0 instructions</small></h2><button id="download-tac" disabled>Download TAC</button></div>
+<p id="tac-info" class="hint">Final code appears only after the entire input passes syntax checking.</p>
+<div class="table-scroll"><table><thead><tr><th>Label</th><th>Instruction</th><th>Jump target</th></tr></thead><tbody id="tac-code"><tr><td colspan="3">Waiting for valid input.</td></tr></tbody></table></div>
+</section>
+<footer>Language detection → Native grammar → C/Lex SDT → Backpatching → TAC <span>No program execution</span></footer>
 </main></body></html>
 
