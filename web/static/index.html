@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Compiler Lab</title><link rel="stylesheet" href="/static/style.css"><script defer src="/static/app.js"></script></head>
+<body>
+<header><a href="/" class="brand"><span class="logo">{ }</span> Compiler Lab</a><span class="badge">PHASE 01 · C + LEX</span></header>
+<main>
+<div class="intro"><p class="eyebrow">FROM SOURCE TO STRUCTURE</p><h1>See your code take shape.</h1><p>Write a small program. Explore its tokens. Check its syntax.</p></div>
+<div class="workspace">
+<section class="panel editor-panel">
+<div class="panel-heading"><h2><span>01</span> Source code</h2><label for="examples" class="sr-only">Load an example</label><select id="examples"><option value="">Load an example…</option></select></div>
+<label for="source" class="sr-only">Program source</label>
+<textarea id="source" spellcheck="false" maxlength="20000" aria-describedby="language-note"></textarea>
+<div class="editor-footer"><span id="length">0 characters</span><button id="analyze" class="primary">Analyze code <span aria-hidden="true">→</span></button></div>
+<p id="language-note" class="hint">Assignments, integer arithmetic, and if / else. Use braces around branches.</p>
+<div id="notice" role="status" aria-live="polite"></div>
+</section>
+<section class="panel result-panel">
+<div class="panel-heading"><h2><span>02</span> Syntax check</h2><span id="status-pill" class="pill">READY</span></div>
+<div id="result" aria-live="polite"><div class="empty-icon">✓</div><h3>Ready when you are.</h3><p>Run an analysis to check your program against the grammar.</p></div>
+<div class="pipeline"><div><small>LEXICAL ANALYSIS</small><strong id="lex-status">Waiting</strong></div><span>→</span><div><small>SYNTAX CHECK</small><strong id="syntax-status">Waiting</strong></div></div>
+<details><summary>Language grammar</summary><pre>program    → statement*
+statement  → assignment | if_statement
+assignment → ID = expression ;
+if_stmt    → if ( condition ) { statement* }
+             [ else { statement* } ]
+condition  → expression relop expression
+expression → term ((+ | -) term)*
+term       → factor ((* | /) factor)*
+factor     → ID | NUMBER | ( expression )
+relop      → &lt; | &gt; | &lt;= | &gt;= | == | !=</pre></details>
+</section>
+</div>
+<section class="panel tokens-panel">
+<div class="panel-heading"><h2><span>03</span> Token explorer <small id="token-count">0 tokens</small></h2><div class="controls"><button id="previous" disabled aria-label="Previous token">←</button><button id="play" disabled>Play</button><button id="next" disabled aria-label="Next token">→</button></div></div>
+<p id="step-info" class="hint" aria-live="polite">Analyze a program to explore how Lex recognizes each token.</p>
+<pre id="source-preview" class="preview" aria-label="Source with current token highlighted" hidden></pre>
+<div class="table-scroll"><table><thead><tr><th>#</th><th>Token type</th><th>Lexeme</th><th>Line</th><th>Column</th></tr></thead><tbody id="tokens"><tr><td colspan="5" class="empty-table">Your tokens will appear here.</td></tr></tbody></table></div>
+<details id="raw-output" hidden><summary>Compiler terminal output</summary><pre id="terminal"></pre></details>
+</section>
+<footer>Lex tokenization → C syntax checking <span>Phase 1 · No program execution</span></footer>
+</main></body></html>
+

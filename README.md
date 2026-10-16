@@ -1,5 +1,48 @@
 # Phase 1 compiler in C using Lex/Flex
 
+## Web interface (FastAPI)
+
+Requires Python 3.10+, Flex/Lex, and a C compiler on PATH. Python serves the
+interface; tokenization and syntax checking still run in the C/Lex compiler.
+
+From this repository folder:
+
+```sh
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install -r requirements.txt
+python -m uvicorn web.app:app --reload --host 127.0.0.1 --port 8000
+```
+
+On Windows, use `py -3 -m venv .venv`, then `.venv\\Scripts\\activate` instead
+of the first two commands. Use the same pip and uvicorn commands afterwards.
+
+Open http://127.0.0.1:8000. Select one of seven examples or enter your own code,
+then click **Analyze code** (Ctrl/Cmd+Enter also works). The interface shows
+token types and positions, the syntax result, and positioned errors. Click a
+token or use Play/arrow buttons to highlight its source text. This is a replay
+of the actual Lex token sequence, not a display of the scanner's internal DFA.
+Lexical failures skip syntax checking. Whitespace and // comments are skipped.
+The interface shows the first error; grammar details and terminal output can
+be expanded. Editing source clears old results.
+
+At startup the app builds a separate compiler under `.build/` if needed.
+It runs each analysis in a temporary file with a three-second timeout; submitted
+programs are checked, not executed. Input is limited to 20,000 ASCII characters.
+The existing terminal compiler commands below still work.
+
+Run web checks:
+
+```sh
+python -m pip install -r requirements-dev.txt
+python -m unittest discover -s tests -v
+```
+
+API endpoints: `GET /api/examples`, `POST /api/analyze` with
+`{"source": "a = 10;"}`. Interactive API documentation is at `/docs`.
+FastAPI setup follows its [static file](https://fastapi.tiangolo.com/tutorial/static-files/)
+and [lifespan](https://fastapi.tiangolo.com/advanced/events/) documentation.
+
 The tokenizer is defined in **lexer.l**. Lex/Flex generates C scanner code
 (`lex.yy.c`), which is compiled together with **syntax_checker.c**.
 The syntax checker is a handwritten recursive-descent parser in C.
@@ -100,4 +143,3 @@ perform backpatching. Unary minus, floats, declarations, loops, logical
 operators and block comments are outside the grammar.
 Errors stop at the first failure; deeply nested classroom-exceeding inputs may
 exhaust the C call stack.
-
